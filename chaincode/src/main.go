@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -25,6 +26,25 @@ import (
 
 // CDNManager example simple Chaincode implementation
 type CDNManager struct {
+}
+
+const USER_PREFIX = "user:"
+
+type User struct {
+	ID    string   `json:"id"`
+	Score string   `json:"score"`
+	IP    string   `json:"ip"`
+	Tasks []string `json:"tasks"`
+}
+
+const TASK_PREFIX = "task:"
+
+type Task struct {
+	ID       string   `json:"id"`
+	Provider string   `json:"provider"`
+	CDNnodes []string `json:"cdnNodes"`
+	Size     int      `json:"size"`
+	URL      string   `json:"url"`
 }
 
 func main() {
@@ -57,6 +77,8 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 		return t.Init(stub, "init", args)
 	} else if function == "write" {
 		return t.write(stub, args)
+	} else if function == "submitTask" {
+		return t.submitTask(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -112,4 +134,17 @@ func (t *CDNManager) read(stub shim.ChaincodeStubInterface, args []string) ([]by
 	}
 
 	return valAsbytes, nil
+}
+
+func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var task Task
+	err := json.Unmarshal([]byte(args[0]), &task)
+	// compute size
+	// set owner
+	taskBytes, err := json.Marshal(&task)
+	err = stub.PutState(TASK_PREFIX+task.ID, taskBytes)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
