@@ -1,0 +1,3 @@
+[submodule "chaincode/src/vendor/github.com/google/uuid"]
+	path = chaincode/src/vendor/github.com/google/uuid
+	url = https://github.com/google/uuid
