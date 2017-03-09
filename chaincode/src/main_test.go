@@ -61,9 +61,17 @@ func checkQuery(t *testing.T, stub *shim.MockStub, name string, value string) {
 
 */
 func checkInvoke(t *testing.T, stub *shim.MockStub, args []string) {
-	_, err := stub.MockInvoke("1", "query", args)
+	_, err := stub.MockInvoke("1", "submitTask", args)
 	if err != nil {
 		fmt.Println("Invoke", args, "failed", err)
+		t.FailNow()
+	}
+}
+
+func checkInit(t *testing.T, stub *shim.MockStub, args []string) {
+	_, err := stub.MockInit("1", "init", args)
+	if err != nil {
+		fmt.Println("Init failed", err)
 		t.FailNow()
 	}
 }
@@ -72,27 +80,17 @@ func Test_Init(t *testing.T) {
 	chaincode := new(CDNManager)
 	stub := shim.NewMockStub("cdn-manager", chaincode)
 
-	_, err := stub.MockInit("1", "init", []string{"A"})
-	if err != nil {
-		fmt.Println("Init failed", err)
-		t.FailNow()
-	}
-	// Init A=123 B=234
-	// checkInit(t, stub, []string{"A", "123", "B", "234"})
-
-	// checkState(t, stub, "A", "123")
-	// checkState(t, stub, "B", "234")
+	checkInit(t, stub, []string{"A"})
+	fmt.Println("Test Init sucess")
 }
 
 func Test_submitTask(t *testing.T) {
 	chaincode := new(CDNManager)
 	stub := shim.NewMockStub("cdn-manager", chaincode)
 
-	_, err := stub.MockInvoke("1", "submitTask", []string{`{'size': 10, 'url': 'http://www.ibm.com'}`})
-	if err != nil {
-		fmt.Println("submit task failed", err)
-		t.FailNow()
-	}
+	checkInit(t, stub, []string{"A"})
+
+	checkInvoke(t, stub, []string{`{'size': 10, 'url': 'http://www.ibm.com', 'id': '', 'provider' : '', 'cdnNodes' : ''}`})
 }
 
 /*

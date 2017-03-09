@@ -22,13 +22,15 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/google/uuid"
 )
 
 // CDNManager example simple Chaincode implementation
 type CDNManager struct {
 }
 
-const USER_PREFIX = "user:"
+var TASK_IDS = "TaskIDs"
+var USER_PREFIX = "user:"
 
 type User struct {
 	ID    string   `json:"id"`
@@ -37,7 +39,7 @@ type User struct {
 	Tasks []string `json:"tasks"`
 }
 
-const TASK_PREFIX = "task:"
+var TASK_PREFIX = "task:"
 
 type Task struct {
 	ID       string   `json:"id"`
@@ -60,11 +62,21 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
 	}
 
-	err := stub.PutState("hello_world", []byte(args[0]))
+  // Initialize the collection of task IDs
+	fmt.Println("Initialize task IDs collection")
+	var blank []string
+	blankBytes, err := json.Marshal(&blank)
 	if err != nil {
+		fmt.Println("Error marshalling ids")
 		return nil, err
 	}
 
+	err = stub.PutState(TASK_IDS, blankBytes)
+	if err != nil {
+		fmt.Println("Failed to initialize task IDs collection")
+	}
+
+	fmt.Println("Initialization complete")
 	return nil, nil
 }
 
@@ -142,9 +154,44 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	// compute size
 	// set owner
 	taskBytes, err := json.Marshal(&task)
+
+	id := uuid.New().String()
+	task.ID = id
+
+  // Update the task IDs by adding the new ID
+	idBytes, err := stub.GetState(TASK_IDS)
+	if err != nil {
+		fmt.Println("Error retrieving task IDs")
+		return nil, err
+	}
+
+	var ids []string
+	err = json.Unmarshal(idBytes, &ids)
+	if err != nil {
+		fmt.Println("Error umarshel IDs")
+		return nil, err
+	}
+
+	ids = append(ids, TASK_PREFIX + task.ID)
+	idsBytesToWrite, err := json.Marshal(&ids)
+	if err != nil {
+		fmt.Println("Error marshalling IDs")
+		return nil, errors.New("Error marshalling the IDs")
+	}
+	fmt.Println("Put tast IDs on TaskIDs")
+	err = stub.PutState(TASK_IDS, idsBytesToWrite)
+	if err != nil {
+		fmt.Println("Error writting task IDs back")
+		return nil, errors.New("Error writting task IDs back")
+	}
+
 	err = stub.PutState(TASK_PREFIX+task.ID, taskBytes)
 	if err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
+
+// func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]byte, error) {
+//
+// }
