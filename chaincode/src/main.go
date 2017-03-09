@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -49,7 +48,6 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 
 	// Initialize the collection of task IDs
 	fmt.Println("Initialize task IDs collection")
-	fmt.Println(uuid.New().String())
 	var blank []string
 	blankBytes, err := json.Marshal(&blank)
 	if err != nil {
@@ -63,10 +61,10 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 	}
 
 	// Initialize few tasks
-	task1 := Task{ID: "001", Provider: "IBM", CDNnodes: []string{}, Size: 1000, URL: "http://www.ibm.com"}
-	task2 := Task{ID: "002", Provider: "Youku", CDNnodes: []string{}, Size: 2000, URL: "http://www.youku.com"}
-	task3 := Task{ID: "003", Provider: "Tudo", CDNnodes: []string{}, Size: 3000, URL: "http://www.tudo.com"}
-	task4 := Task{ID: "004", Provider: "Youtube", CDNnodes: []string{}, Size: 4000, URL: "http://www.youtube.com"}
+	task1 := Task{ID: "001", Provider: "IBM", CDNnodes: []string{}, Size: 1000, URL: "https://www.ibm.com/us-en/images/homepage/featured/02032017_f_arrowhead_15894_600x260.jpg"}
+	task2 := Task{ID: "002", Provider: "Baidu", CDNnodes: []string{}, Size: 2000, URL: "https://ss0.bdstatic.com/5aV1bjqh_Q23odCf/static/superman/img/logo/bd_logo1_31bdc765.png"}
+	task3 := Task{ID: "003", Provider: "Tudo", CDNnodes: []string{}, Size: 3000, URL: "http://www.tudou.com/favicon.ico"}
+	task4 := Task{ID: "004", Provider: "Youtube", CDNnodes: []string{}, Size: 4000, URL: "http://www.youtube.com/favicon.ico"}
 	task1Bytes, err1 := json.Marshal(task1)
 	task2Bytes, err2 := json.Marshal(task2)
 	task3Bytes, err3 := json.Marshal(task3)
@@ -148,8 +146,7 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	// set owner
 
 	// Generate an UUID as task ID
-	// id := uuid.New().String()
-	id := fmt.Sprint(time.Now().Unix())
+	id := uuid.New().String()
 	task.ID = id
 	taskBytes, err := json.Marshal(&task)
 
