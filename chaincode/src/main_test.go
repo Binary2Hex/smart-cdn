@@ -60,8 +60,8 @@ func checkQuery(t *testing.T, stub *shim.MockStub, name string, value string) {
 }
 
 */
-func checkInvoke(t *testing.T, stub *shim.MockStub, args []string) {
-	_, err := stub.MockInvoke("1", "submitTask", args)
+func checkInvoke(t *testing.T, stub *shim.MockStub, funcion string, args []string) {
+	_, err := stub.MockInvoke("1", funcion, args)
 	if err != nil {
 		fmt.Println("Invoke", args, "failed", err)
 		t.FailNow()
@@ -106,7 +106,19 @@ func Test_submitTask(t *testing.T) {
 
 	checkInit(t, stub, []string{"A"})
 
-	checkInvoke(t, stub, []string{`{"size": 999, "url": "http://www.ibm.com", "id": "", "provider" : "", "cdnNodes" : ""}`})
+	checkInvoke(t, stub, "submitTask", []string{`{"size": "999", "url": "http://www.ibm.com"}`})
 
 	checkQuery(t, stub, []string{})
+}
+
+func Test_claimTask(t *testing.T) {
+	chaincode := new(CDNManager)
+	stub := shim.NewMockStub("cdn-manager", chaincode)
+
+	checkInit(t, stub, []string{"A"})
+
+	checkInvoke(t, stub, "submitTask", []string{`{"id": "task-uuid", "url": "http://www.ibm.com"}`})
+	fmt.Println("YYYYYYYYYY")
+	checkQuery(t, stub, []string{})
+	checkInvoke(t, stub, "claimTask", []string{"cdnName", "tast-uuid"})
 }

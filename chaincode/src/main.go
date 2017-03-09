@@ -14,10 +14,11 @@ type CDNManager struct {
 }
 
 var TASK_IDS = "TaskIDs"
-var USER_PREFIX = "user:"
 
-type User struct {
-	ID    string   `json:"id"`
+var NODE_PREFIX = "node:"
+
+type CDNNode struct {
+	Name  string   `json:"name"`
 	Score string   `json:"score"`
 	IP    string   `json:"ip"`
 	Tasks []string `json:"tasks"`
@@ -27,16 +28,17 @@ var TASK_PREFIX = "task:"
 
 type Task struct {
 	ID       string   `json:"id"`
-	Provider string   `json:"provider"`
-	CDNnodes []string `json:"cdnNodes"`
-	Size     int      `json:"size"`
+	Customer string   `json:"customer"`
+	Nodes    []string `json:"nodes"`
+	Size     string   `json:"size"`
+	Type     string   `json:"type"`
 	URL      string   `json:"url"`
 }
 
 func main() {
 	err := shim.Start(new(CDNManager))
 	if err != nil {
-		fmt.Printf("Error starting Simple chaincode: %s", err)
+		fmt.Printf("Error starting Simple chaincode:", err)
 	}
 }
 
@@ -60,11 +62,13 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		fmt.Println("Failed to initialize task IDs collection")
 	}
 
+	/*
+	 */
 	// Initialize few tasks
-	task1 := Task{ID: "001", Provider: "IBM", CDNnodes: []string{}, Size: 1000, URL: "https://www.ibm.com/us-en/images/homepage/featured/02032017_f_arrowhead_15894_600x260.jpg"}
-	task2 := Task{ID: "002", Provider: "Baidu", CDNnodes: []string{}, Size: 2000, URL: "https://ss0.bdstatic.com/5aV1bjqh_Q23odCf/static/superman/img/logo/bd_logo1_31bdc765.png"}
-	task3 := Task{ID: "003", Provider: "Tudo", CDNnodes: []string{}, Size: 3000, URL: "http://www.tudou.com/favicon.ico"}
-	task4 := Task{ID: "004", Provider: "Youtube", CDNnodes: []string{}, Size: 4000, URL: "http://www.youtube.com/favicon.ico"}
+	task1 := Task{ID: "001", Customer: "IBM", URL: "https://www.ibm.com/us-en/images/homepage/featured/02032017_f_arrowhead_15894_600x260.jpg"}
+	task2 := Task{ID: "002", Customer: "Baidu", URL: "https://ss0.bdstatic.com/5aV1bjqh_Q23odCf/static/superman/img/logo/bd_logo1_31bdc765.png"}
+	task3 := Task{ID: "003", Customer: "Tudo", URL: "http://www.tudou.com/favicon.ico"}
+	task4 := Task{ID: "004", Customer: "Youtube", URL: "http://www.youtube.com/favicon.ico"}
 	task1Bytes, err1 := json.Marshal(task1)
 	task2Bytes, err2 := json.Marshal(task2)
 	task3Bytes, err3 := json.Marshal(task3)
@@ -107,6 +111,8 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 		return t.Init(stub, "init", args)
 	} else if function == "submitTask" {
 		return t.submitTask(stub, args)
+	} else if function == "claimTask" {
+		return t.claimTask(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -142,21 +148,19 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var task Task
 	err := json.Unmarshal([]byte(args[0]), &task)
+	if err != nil {
+		fmt.Println("Error unmarshal task", err)
+		return nil, err
+	}
 	// compute size
 	// set owner
 
-	// Generate an UUID as task ID
-	id := uuid.New().String()
-	task.ID = id
-	taskBytes, err := json.Marshal(&task)
-
-	t.updateTaskIDList(stub, id)
-
-	err = stub.PutState(TASK_PREFIX+task.ID, taskBytes)
+	err = t.saveTask(stub, &task)
 	if err != nil {
+		fmt.Println("Error saving task", err)
 		return nil, err
 	}
-	return nil, nil
+	return nil, t.updateTaskIDList(stub, task.ID)
 }
 
 // Update the task ID table by adding the new ID
@@ -174,7 +178,8 @@ func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID st
 		return err
 	}
 
-	ids = append(ids, TASK_PREFIX+newID)
+	// TODO: check existence
+	ids = append(ids, newID)
 	idsBytesToWrite, err := json.Marshal(&ids)
 	if err != nil {
 		fmt.Println("Error marshalling IDs")
@@ -190,6 +195,26 @@ func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID st
 	return nil
 }
 
+func (t *CDNManager) claimTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	cdnNodeName := args[0]
+	taskId := args[1]
+
+	task, terr := t.getTaskById(stub, taskId)
+	if terr != nil {
+		return nil, terr
+	}
+	task.Nodes = append(task.Nodes, cdnNodeName)
+	t.saveTask(stub, task)
+
+	node, nerr := t.getNodeByName(stub, cdnNodeName)
+	if nerr != nil {
+		return nil, nerr
+	}
+	node.Tasks = append(node.Tasks, taskId)
+	t.saveCDNNode(stub, node)
+	return nil, nil
+}
+
 // Get all tasks
 func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, error) {
 	var allTasks []Task
@@ -202,23 +227,97 @@ func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, erro
 	var taskIDs []string
 	err = json.Unmarshal(taskIDBytes, &taskIDs)
 	if err != nil {
-		fmt.Println("Error unmarshalling task IDs")
+		fmt.Println("Error unmarshalling task IDs", err)
 		return nil, err
 	}
 
-	for _, value := range taskIDs {
-		taskBytes, err := stub.GetState(value)
-
-		var task Task
-		err = json.Unmarshal(taskBytes, &task)
+	for _, taskId := range taskIDs {
+		task, err := t.getTaskById(stub, taskId)
 		if err != nil {
-			fmt.Println("Error retrieving task " + value)
+			fmt.Println("Error getting task  by ID(", taskId, ")", err)
 			return nil, err
 		}
 
-		fmt.Println("Appending task" + value)
-		allTasks = append(allTasks, task)
+		fmt.Println("Appending task" + taskId)
+		allTasks = append(allTasks, *task)
 	}
 
 	return allTasks, nil
+}
+
+//////////////////////////////////////////////////////////// frequent operations
+
+func (t *CDNManager) saveTask(stub shim.ChaincodeStubInterface, task *Task) error {
+	if task.ID == "" {
+		// Generate an UUID as task ID
+		task.ID = uuid.New().String()
+	}
+	taskBytes, err := json.Marshal(task)
+	if err != nil {
+		return err
+	}
+
+	err = stub.PutState(TASK_PREFIX+task.ID, taskBytes)
+	if err != nil {
+		return err
+	}
+	fmt.Println("SSSSSSSSSSSS", TASK_PREFIX+task.ID)
+	fmt.Println("PPPPPPPPPPPP", string(taskBytes))
+	return err
+}
+
+func (t *CDNManager) saveCDNNode(stub shim.ChaincodeStubInterface, node *CDNNode) error {
+	if node.Name == "" {
+		return errors.New("Can not save a cdn node without name")
+	}
+	if node.IP == "" {
+		return errors.New("Can not save a cdn node without ip")
+	}
+	nodeBytes, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+
+	err = stub.PutState(NODE_PREFIX+node.Name, nodeBytes)
+	return err
+}
+
+func (t *CDNManager) getTaskById(stub shim.ChaincodeStubInterface, taskId string) (*Task, error) {
+	fmt.Println("GGGGGGGG", TASK_PREFIX+taskId)
+	taskBytes, err := stub.GetState(TASK_PREFIX + taskId)
+	fmt.Println("FFFFFFFF", string(taskBytes))
+	if err != nil {
+		fmt.Println("Error fetching task using id:" + (TASK_PREFIX + taskId))
+		return nil, err
+	}
+	if len(taskBytes) == 0 {
+		return nil, errors.New("No task is found using id " + taskId)
+	}
+
+	var task Task
+	err = json.Unmarshal(taskBytes, &task)
+	if err != nil {
+		fmt.Println("Error unmarshal task", err)
+		return nil, err
+	}
+	return &task, nil
+}
+
+func (t *CDNManager) getNodeByName(stub shim.ChaincodeStubInterface, nodeName string) (*CDNNode, error) {
+	nodeBytes, err := stub.GetState(NODE_PREFIX + nodeName)
+	if err != nil {
+		fmt.Println("Error fetching CDN node using id:" + (NODE_PREFIX + nodeName))
+		return nil, err
+	}
+	if len(nodeBytes) == 0 {
+		return nil, errors.New("No cdn node is found using name " + nodeName)
+	}
+
+	var node CDNNode
+	err = json.Unmarshal(nodeBytes, &node)
+	if err != nil {
+		fmt.Println("Error unmarshal CDN node", err)
+		return nil, err
+	}
+	return &node, nil
 }
