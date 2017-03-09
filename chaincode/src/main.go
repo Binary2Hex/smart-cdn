@@ -1,19 +1,3 @@
-/*
-Copyright IBM Corp 2016 All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package main
 
 import (
@@ -76,6 +60,40 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		fmt.Println("Failed to initialize task IDs collection")
 	}
 
+	// Initialize few tasks
+  task1 := Task{ID : "001", Provider : "IBM", CDNnodes : []string{}, Size : 1000, URL : "http://www.ibm.com"}
+	task2 := Task{ID : "002", Provider : "Youku", CDNnodes : []string{}, Size : 2000, URL : "http://www.youku.com"}
+  task3 := Task{ID : "003", Provider : "Tudo", CDNnodes : []string{}, Size : 3000, URL : "http://www.tudo.com"}
+  task4 := Task{ID : "004", Provider : "Youtube", CDNnodes : []string{}, Size : 4000, URL : "http://www.youtube.com"}
+	task1Bytes, err1 := json.Marshal(task1)
+	task2Bytes, err2 := json.Marshal(task2)
+	task3Bytes, err3 := json.Marshal(task3)
+	task4Bytes, err4 := json.Marshal(task4)
+	if err1 != nil {
+		fmt.Println("Error Marshal task1")
+		return nil, err1
+	}
+	if err2 != nil {
+		fmt.Println("Error Marshal task2")
+		return nil, err2
+	}
+	if err3 != nil {
+		fmt.Println("Error Marshal task3")
+		return nil, err3
+	}
+	if err4 != nil {
+		fmt.Println("Error Marshal task4")
+		return nil, err4
+	}
+	err1 = stub.PutState(TASK_PREFIX+task1.ID, task1Bytes)
+	t.updateTaskIDList(stub, task1.ID)
+	err2 = stub.PutState(TASK_PREFIX+task2.ID, task2Bytes)
+	t.updateTaskIDList(stub, task2.ID)
+	err3 = stub.PutState(TASK_PREFIX+task3.ID, task3Bytes)
+	t.updateTaskIDList(stub, task3.ID)
+	err4 = stub.PutState(TASK_PREFIX+task4.ID, task4Bytes)
+	t.updateTaskIDList(stub, task4.ID)
+
 	fmt.Println("Initialization complete")
 	return nil, nil
 }
@@ -87,8 +105,6 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 	// Handle different functions
 	if function == "init" {
 		return t.Init(stub, "init", args)
-	} else if function == "write" {
-		return t.write(stub, args)
 	} else if function == "submitTask" {
 		return t.submitTask(stub, args)
 	}
@@ -102,50 +118,25 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
-	if function == "read" { //read a variable
-		return t.read(stub, args)
+	if function == "getTaskList" {
+		fmt.Println("Getting Task List")
+		taskList, err := t.getTaskList(stub)
+		if err != nil {
+			fmt.Println("Error from getTaskList")
+			return nil, err
+		} else {
+			taskListBytes, err1 := json.Marshal(&taskList)
+			if err1 != nil {
+				fmt.Println("Error marshalling taskList")
+				return nil, err1
+			}
+			fmt.Println("All success, returning taskList")
+			return taskListBytes, nil
+		}
 	}
 	fmt.Println("query did not find func: " + function)
 
 	return nil, errors.New("Received unknown function query: " + function)
-}
-
-// write - invoke function to write key/value pair
-func (t *CDNManager) write(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var key, value string
-	var err error
-	fmt.Println("running write()")
-
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
-	}
-
-	key = args[0] //rename for funsies
-	value = args[1]
-	err = stub.PutState(key, []byte(value)) //write the variable into the chaincode state
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
-}
-
-// read - query function to read key/value pair
-func (t *CDNManager) read(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var key, jsonResp string
-	var err error
-
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
-	}
-
-	key = args[0]
-	valAsbytes, err := stub.GetState(key)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-
-	return valAsbytes, nil
 }
 
 func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -153,37 +144,13 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	err := json.Unmarshal([]byte(args[0]), &task)
 	// compute size
 	// set owner
-	taskBytes, err := json.Marshal(&task)
 
+  // Generate an UUID as task ID
 	id := uuid.New().String()
 	task.ID = id
+	taskBytes, err := json.Marshal(&task)
 
-  // Update the task IDs by adding the new ID
-	idBytes, err := stub.GetState(TASK_IDS)
-	if err != nil {
-		fmt.Println("Error retrieving task IDs")
-		return nil, err
-	}
-
-	var ids []string
-	err = json.Unmarshal(idBytes, &ids)
-	if err != nil {
-		fmt.Println("Error umarshel IDs")
-		return nil, err
-	}
-
-	ids = append(ids, TASK_PREFIX + task.ID)
-	idsBytesToWrite, err := json.Marshal(&ids)
-	if err != nil {
-		fmt.Println("Error marshalling IDs")
-		return nil, errors.New("Error marshalling the IDs")
-	}
-	fmt.Println("Put tast IDs on TaskIDs")
-	err = stub.PutState(TASK_IDS, idsBytesToWrite)
-	if err != nil {
-		fmt.Println("Error writting task IDs back")
-		return nil, errors.New("Error writting task IDs back")
-	}
+	t.updateTaskIDList(stub, id)
 
 	err = stub.PutState(TASK_PREFIX+task.ID, taskBytes)
 	if err != nil {
@@ -192,6 +159,66 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	return nil, nil
 }
 
-// func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]byte, error) {
-//
-// }
+// Update the task ID table by adding the new ID
+func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID string) (error) {
+	idBytes, err := stub.GetState(TASK_IDS)
+	if err != nil {
+		fmt.Println("Error retrieving task IDs")
+		return err
+	}
+
+	var ids []string
+	err = json.Unmarshal(idBytes, &ids)
+	if err != nil {
+		fmt.Println("Error umarshel IDs")
+		return err
+	}
+
+	ids = append(ids, TASK_PREFIX + newID)
+	idsBytesToWrite, err := json.Marshal(&ids)
+	if err != nil {
+		fmt.Println("Error marshalling IDs")
+		return errors.New("Error marshalling the IDs")
+	}
+	fmt.Println("Put tast IDs on TaskIDs")
+	err = stub.PutState(TASK_IDS, idsBytesToWrite)
+	if err != nil {
+		fmt.Println("Error writting task IDs back")
+		return errors.New("Error writting task IDs back")
+	}
+
+	return nil
+}
+
+// Get all tasks
+func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, error) {
+	var allTasks []Task
+
+	taskIDBytes, err := stub.GetState(TASK_IDS)
+	if err != nil {
+		fmt.Println("Error retrieving task IDs")
+		return nil, err
+	}
+	var taskIDs []string
+	err = json.Unmarshal(taskIDBytes, &taskIDs)
+	if err != nil {
+		fmt.Println("Error unmarshalling task IDs")
+		return nil, err
+	}
+
+	for _, value := range taskIDs {
+		taskBytes, err := stub.GetState(value)
+
+		var task Task
+		err = json.Unmarshal(taskBytes, &task)
+		if err != nil {
+			fmt.Println("Error retrieving task " + value)
+			return nil, err
+		}
+
+		fmt.Println("Appending task" + value)
+		allTasks = append(allTasks, task)
+	}
+
+	return allTasks, nil
+}

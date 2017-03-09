@@ -70,9 +70,25 @@ func checkInvoke(t *testing.T, stub *shim.MockStub, args []string) {
 
 func checkInit(t *testing.T, stub *shim.MockStub, args []string) {
 	_, err := stub.MockInit("1", "init", args)
+	fmt.Println("check init")
 	if err != nil {
 		fmt.Println("Init failed", err)
 		t.FailNow()
+	}
+}
+
+func checkQuery(t *testing.T, stub *shim.MockStub, args []string) {
+	bytes, err := stub.MockQuery("getTaskList", args)
+	if err != nil {
+		fmt.Println("getTaskList", "failed", err)
+		t.FailNow()
+	} else if bytes == nil {
+		fmt.Println("getTaskList", "failed to get value")
+		t.FailNow()
+	} else {
+		// fmt.Println("Query did not fail as expected (PutState within Query)!", string(bytes), err)
+		// t.FailNow()
+		t.Log("Query returned", string(bytes))
 	}
 }
 
@@ -90,27 +106,7 @@ func Test_submitTask(t *testing.T) {
 
 	checkInit(t, stub, []string{"A"})
 
-	checkInvoke(t, stub, []string{`{'size': 10, 'url': 'http://www.ibm.com', 'id': '', 'provider' : '', 'cdnNodes' : ''}`})
+	checkInvoke(t, stub, []string{`{"size": 999, "url": "http://www.ibm.com", "id": "", "provider" : "", "cdnNodes" : ""}`})
+
+	checkQuery(t, stub, []string{})
 }
-
-/*
-func TestExample02_Invoke(t *testing.T) {
-	scc := new(SimpleChaincode)
-	stub := shim.NewMockStub("ex02", scc)
-
-	// Init A=567 B=678
-	checkInit(t, stub, []string{"A", "567", "B", "678"})
-
-	// Invoke A->B for 123
-	checkInvoke(t, stub, []string{"A", "B", "123"})
-	checkQuery(t, stub, "A", "444")
-	checkQuery(t, stub, "B", "801")
-
-	// Invoke B->A for 234
-	checkInvoke(t, stub, []string{"B", "A", "234"})
-	checkQuery(t, stub, "A", "678")
-	checkQuery(t, stub, "B", "567")
-	checkState(t, stub, "A", "678")
-	checkState(t, stub, "B", "567")
-}
-*/
