@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -46,8 +47,9 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
 	}
 
-  // Initialize the collection of task IDs
+	// Initialize the collection of task IDs
 	fmt.Println("Initialize task IDs collection")
+	fmt.Println(uuid.New().String())
 	var blank []string
 	blankBytes, err := json.Marshal(&blank)
 	if err != nil {
@@ -61,10 +63,10 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 	}
 
 	// Initialize few tasks
-  task1 := Task{ID : "001", Provider : "IBM", CDNnodes : []string{}, Size : 1000, URL : "http://www.ibm.com"}
-	task2 := Task{ID : "002", Provider : "Youku", CDNnodes : []string{}, Size : 2000, URL : "http://www.youku.com"}
-  task3 := Task{ID : "003", Provider : "Tudo", CDNnodes : []string{}, Size : 3000, URL : "http://www.tudo.com"}
-  task4 := Task{ID : "004", Provider : "Youtube", CDNnodes : []string{}, Size : 4000, URL : "http://www.youtube.com"}
+	task1 := Task{ID: "001", Provider: "IBM", CDNnodes: []string{}, Size: 1000, URL: "http://www.ibm.com"}
+	task2 := Task{ID: "002", Provider: "Youku", CDNnodes: []string{}, Size: 2000, URL: "http://www.youku.com"}
+	task3 := Task{ID: "003", Provider: "Tudo", CDNnodes: []string{}, Size: 3000, URL: "http://www.tudo.com"}
+	task4 := Task{ID: "004", Provider: "Youtube", CDNnodes: []string{}, Size: 4000, URL: "http://www.youtube.com"}
 	task1Bytes, err1 := json.Marshal(task1)
 	task2Bytes, err2 := json.Marshal(task2)
 	task3Bytes, err3 := json.Marshal(task3)
@@ -145,7 +147,7 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	// compute size
 	// set owner
 
-  // Generate an UUID as task ID
+	// Generate an UUID as task ID
 	// id := uuid.New().String()
 	id := fmt.Sprint(time.Now().Unix())
 	task.ID = id
@@ -161,7 +163,7 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 }
 
 // Update the task ID table by adding the new ID
-func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID string) (error) {
+func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID string) error {
 	idBytes, err := stub.GetState(TASK_IDS)
 	if err != nil {
 		fmt.Println("Error retrieving task IDs")
@@ -175,7 +177,7 @@ func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID st
 		return err
 	}
 
-	ids = append(ids, TASK_PREFIX + newID)
+	ids = append(ids, TASK_PREFIX+newID)
 	idsBytesToWrite, err := json.Marshal(&ids)
 	if err != nil {
 		fmt.Println("Error marshalling IDs")
