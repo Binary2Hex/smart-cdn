@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	"github.com/google/uuid"
 )
 
 // CDNManager example simple Chaincode implementation
@@ -146,7 +146,8 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	// set owner
 
   // Generate an UUID as task ID
-	id := uuid.New().String()
+	// id := uuid.New().String()
+	id := fmt.Sprint(time.Now().Unix())
 	task.ID = id
 	taskBytes, err := json.Marshal(&task)
 
