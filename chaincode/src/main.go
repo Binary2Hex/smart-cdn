@@ -191,8 +191,9 @@ func (t *CDNManager) updateTaskIDList(stub shim.ChaincodeStubInterface, newID st
 		return err
 	}
 
-	// TODO: check existence
-	ids = append(ids, newID)
+	if indexOf(ids, newID) == -1 {
+		ids = append(ids, newID)
+	}
 	idsBytesToWrite, err := json.Marshal(&ids)
 	if err != nil {
 		fmt.Println("Error marshalling IDs")
@@ -216,14 +217,18 @@ func (t *CDNManager) claimTask(stub shim.ChaincodeStubInterface, args []string) 
 	if terr != nil {
 		return nil, terr
 	}
-	task.Nodes = append(task.Nodes, cdnNodeName)
+	if indexOf(task.Nodes, cdnNodeName) == -1 {
+		task.Nodes = append(task.Nodes, cdnNodeName)
+	}
 	t.saveTask(stub, task)
 
 	node, nerr := t.getNodeByName(stub, cdnNodeName)
 	if nerr != nil {
 		return nil, nerr
 	}
-	node.Tasks = append(node.Tasks, taskId)
+	if indexOf(node.Tasks, taskId) == -1 {
+		node.Tasks = append(node.Tasks, taskId)
+	}
 	t.saveCDNNode(stub, node)
 	return nil, nil
 }
@@ -259,6 +264,15 @@ func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, erro
 }
 
 //////////////////////////////////////////////////////////// frequent operations
+
+func indexOf(strList []string, strToFind string) int {
+	for idx, s := range strList {
+		if s == strToFind {
+			return idx
+		}
+	}
+	return -1
+}
 
 func (t *CDNManager) saveTask(stub shim.ChaincodeStubInterface, task *Task) error {
 	if task.ID == "" {
