@@ -77,8 +77,8 @@ func checkInit(t *testing.T, stub *shim.MockStub, args []string) {
 	}
 }
 
-func checkQuery(t *testing.T, stub *shim.MockStub, args []string) {
-	bytes, err := stub.MockQuery("getTaskList", args)
+func checkQuery(t *testing.T, stub *shim.MockStub, function string, args []string) {
+	bytes, err := stub.MockQuery(function, args)
 	if err != nil {
 		fmt.Println("getTaskList", "failed", err)
 		t.FailNow()
@@ -108,7 +108,7 @@ func Test_submitTask(t *testing.T) {
 
 	checkInvoke(t, stub, "submitTask", []string{`{"size": "999", "url": "http://www.ibm.com"}`})
 
-	checkQuery(t, stub, []string{})
+	checkQuery(t, stub, "getTaskList", []string{})
 }
 
 func Test_claimTask(t *testing.T) {
@@ -119,6 +119,9 @@ func Test_claimTask(t *testing.T) {
 
 	checkInvoke(t, stub, "submitTask", []string{`{"id": "task-uuid", "url": "http://www.ibm.com"}`})
 	checkInvoke(t, stub, "registerCDNNode", []string{`{"name": "cdnName1", "ip": "1.2.3.4"}`})
-	checkQuery(t, stub, []string{})
+	checkQuery(t, stub, "getTaskList", []string{})
 	checkInvoke(t, stub, "claimTask", []string{"cdnName1", "task-uuid"})
+	// checkQuery(t, stub,)
+	checkQuery(t, stub, "getNodeByTaskID", []string{"9.12.34.56", "task-uuid"})
+	checkQuery(t, stub, "getNodeByTaskID", []string{"8.12.34.56", "task-uuid"})
 }

@@ -42,6 +42,9 @@ func main() {
 	}
 }
 
+var NODE1 = []byte("cdn-node-cn.mybluemix.net")
+var NODE2 = []byte("cdn-node-uk.mybluemix.net")
+
 // Init resets all the things
 func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	if len(args) != 1 {
@@ -145,6 +148,10 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 			fmt.Println("All success, returning taskList")
 			return taskListBytes, nil
 		}
+	} else if function == "getNodeByTaskID" {
+		fmt.Println("Getting node by task ID")
+		nodeIP, err := t.getNodeByTaskID(stub, args)
+		return nodeIP, err
 	}
 	fmt.Println("query did not find func: " + function)
 
@@ -333,4 +340,52 @@ func (t *CDNManager) getNodeByName(stub shim.ChaincodeStubInterface, nodeName st
 		return nil, err
 	}
 	return &node, nil
+}
+
+// TODO: Change the function name
+// Input: Task ID
+// Output: Best CDNNodeIP based on IP match
+func (t *CDNManager) getNodeByTaskID(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	clientIP := args[0]
+	taskID := args[1]
+	if taskID == "" {
+		fmt.Println("Task ID should not be blank")
+		return nil, errors.New("Task ID should not be blank")
+	}
+
+	taskBytes, err := stub.GetState(TASK_PREFIX + taskID)
+	if err != nil {
+		fmt.Println("Error getting task by task ID:", TASK_PREFIX + taskID)
+		return nil, err
+	}
+	var task Task
+	err = json.Unmarshal(taskBytes, &task)
+	if err != nil {
+		fmt.Println("Error unmarshal taskBytes in getNodeByTaskID")
+		return nil, err
+	}
+
+	// TODO update clent and CDNNode match algorithm
+	// Now hard coded
+	for _, nodeID := range task.Nodes {
+		nodeBytes, err := stub.GetState(NODE_PREFIX + nodeID)
+		if err != nil {
+			fmt.Println("Error getting cdn node by nodeID:", NODE_PREFIX + nodeID)
+			return nil, err
+		}
+		var node CDNNode
+		err = json.Unmarshal(nodeBytes, &node)
+		if err != nil {
+			fmt.Println("Error unmarshal nodeBytes in getNodeByTaskID")
+			return nil, err
+		}
+	}
+
+	if clientIP[0] % 2 == 0 {
+		return []byte("cdn-node-cn.mybluemix.net"), nil
+	} else {
+		return []byte("cdn-node-uk.mybluemix.net"), nil
+	}
+
+return nil, nil
 }
