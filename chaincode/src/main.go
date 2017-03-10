@@ -111,6 +111,8 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 		return t.Init(stub, "init", args)
 	} else if function == "submitTask" {
 		return t.submitTask(stub, args)
+	} else if function == "registerCDNNode" {
+		return t.registerCDNNode(stub, args)
 	} else if function == "claimTask" {
 		return t.claimTask(stub, args)
 	}
@@ -143,6 +145,9 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 	fmt.Println("query did not find func: " + function)
 
 	return nil, errors.New("Received unknown function query: " + function)
+}
+
+func (t *CDNManager) registerCDNNode(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 }
 
 func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -261,8 +266,6 @@ func (t *CDNManager) saveTask(stub shim.ChaincodeStubInterface, task *Task) erro
 	if err != nil {
 		return err
 	}
-	fmt.Println("SSSSSSSSSSSS", TASK_PREFIX+task.ID)
-	fmt.Println("PPPPPPPPPPPP", string(taskBytes))
 	return err
 }
 
@@ -283,9 +286,7 @@ func (t *CDNManager) saveCDNNode(stub shim.ChaincodeStubInterface, node *CDNNode
 }
 
 func (t *CDNManager) getTaskById(stub shim.ChaincodeStubInterface, taskId string) (*Task, error) {
-	fmt.Println("GGGGGGGG", TASK_PREFIX+taskId)
 	taskBytes, err := stub.GetState(TASK_PREFIX + taskId)
-	fmt.Println("FFFFFFFF", string(taskBytes))
 	if err != nil {
 		fmt.Println("Error fetching task using id:" + (TASK_PREFIX + taskId))
 		return nil, err
