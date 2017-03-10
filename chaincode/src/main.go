@@ -147,9 +147,9 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 		}
 		fmt.Println("All success, returning taskList")
 		return taskListBytes, nil
-	} else if function == "getNodeByTaskID" {
+	} else if function == "locateCDN" {
 		fmt.Println("Getting node by task ID")
-		nodeIP, err := t.getNodeByTaskID(stub, args)
+		nodeIP, err := t.locateCDN(stub, args)
 		return nodeIP, err
 	} else if function == "getNodeList" {
 		fmt.Println("Getting node list")
@@ -394,50 +394,29 @@ func (t *CDNManager) getNodeByName(stub shim.ChaincodeStubInterface, nodeName st
 	return &node, nil
 }
 
-// TODO: Change the function name
 // Input: Task ID
 // Output: Best CDNNodeIP based on IP match
-func (t *CDNManager) getNodeByTaskID(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	clientIP := args[0]
+func (t *CDNManager) locateCDN(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	endpointIP := string(args[0])
 	taskID := args[1]
 	if taskID == "" {
 		fmt.Println("Task ID should not be blank")
 		return nil, errors.New("Task ID should not be blank")
 	}
 
-	taskBytes, err := stub.GetState(TASK_PREFIX + taskID)
+	task, err := t.getTaskById(stub, taskID)
 	if err != nil {
-		fmt.Println("Error getting task by task ID:", TASK_PREFIX+taskID)
-		return nil, err
-	}
-	var task Task
-	err = json.Unmarshal(taskBytes, &task)
-	if err != nil {
-		fmt.Println("Error unmarshal taskBytes in getNodeByTaskID")
 		return nil, err
 	}
 
+	if len(task.Nodes) == 0 {
+		return nil, errors.New("This task has not been claimed yet")
+	}
 	// TODO update clent and CDNNode match algorithm
-	// Now hard coded
-	for _, nodeID := range task.Nodes {
-		nodeBytes, err := stub.GetState(NODE_PREFIX + nodeID)
-		if err != nil {
-			fmt.Println("Error getting cdn node by nodeID:", NODE_PREFIX+nodeID)
-			return nil, err
-		}
-		var node CDNNode
-		err = json.Unmarshal(nodeBytes, &node)
-		if err != nil {
-			fmt.Println("Error unmarshal nodeBytes in getNodeByTaskID")
-			return nil, err
-		}
+	nodeIdx := int(endpointIP[0]) % len(task.Nodes)
+	node, err1 := t.getNodeByName(stub, task.Nodes[nodeIdx])
+	if err1 != nil {
+		return nil, err1
 	}
-
-	if clientIP[0]%2 == 0 {
-		return []byte("cdn-node-cn.mybluemix.net"), nil
-	} else {
-		return []byte("cdn-node-uk.mybluemix.net"), nil
-	}
-
-	return nil, nil
+	return []byte(node.IP), nil
 }
