@@ -118,6 +118,7 @@ func Test_claimTask(t *testing.T) {
 	checkInit(t, stub, []string{"A"})
 
 	checkInvoke(t, stub, "submitTask", []string{`{"id": "task-uuid", "url": "http://www.ibm.com"}`})
+	checkInvoke(t, stub, "registerCDNNode", []string{`{"name": "cdnName1", "ip": "1.2.3.4"}`})
 	checkQuery(t, stub, []string{})
-	checkInvoke(t, stub, "claimTask", []string{"cdnName", "task-uuid"})
+	checkInvoke(t, stub, "claimTask", []string{"cdnName1", "task-uuid"})
 }
