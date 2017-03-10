@@ -148,6 +148,14 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 }
 
 func (t *CDNManager) registerCDNNode(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var node CDNNode
+	err := json.Unmarshal([]byte(args[0]), &node)
+	if err != nil {
+		fmt.Println("Error unmarshal cdn node", err)
+		return nil, err
+	}
+
+	return nil, t.saveCDNNode(stub, &node)
 }
 
 func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
