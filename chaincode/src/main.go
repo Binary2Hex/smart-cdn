@@ -258,29 +258,26 @@ func (t *CDNManager) claimTask(stub shim.ChaincodeStubInterface, args []string) 
 
 // Get all tasks
 func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, error) {
+	keysIter, err := stub.RangeQueryState(TASK_PREFIX, TASK_PREFIX+"~")
+	if err != nil {
+		return nil, errors.New("Unable to start the iterator")
+	}
+
+	defer keysIter.Close()
+
 	var allTasks []Task
-
-	taskIDBytes, err := stub.GetState(TASK_IDS)
-	if err != nil {
-		fmt.Println("Error retrieving task IDs")
-		return nil, err
-	}
-	var taskIDs []string
-	err = json.Unmarshal(taskIDBytes, &taskIDs)
-	if err != nil {
-		fmt.Println("Error unmarshalling task IDs", err)
-		return nil, err
-	}
-
-	for _, taskId := range taskIDs {
-		task, err := t.getTaskById(stub, taskId)
+	for keysIter.HasNext() {
+		_, taskBytes, iterErr := keysIter.Next()
+		if iterErr != nil {
+			return nil, fmt.Errorf("Keys operation failed. Error accessing state: %s", iterErr)
+		}
+		var task Task
+		err = json.Unmarshal(taskBytes, &task)
 		if err != nil {
-			fmt.Println("Error getting task  by ID(", taskId, ")", err)
+			fmt.Println("Error unmarshal task", err)
 			return nil, err
 		}
-
-		fmt.Println("Appending task" + taskId)
-		allTasks = append(allTasks, *task)
+		allTasks = append(allTasks, task)
 	}
 
 	return allTasks, nil
