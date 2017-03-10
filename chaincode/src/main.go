@@ -62,8 +62,13 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		fmt.Println("Failed to initialize task IDs collection")
 	}
 
-	/*
-	 */
+	err = t.initSamples(stub)
+
+	fmt.Println("Initialization complete")
+	return nil, nil
+}
+
+func (t *CDNManager) initSamples(stub shim.ChaincodeStubInterface) (error) {
 	// Initialize few tasks
 	task1 := Task{ID: "001", Customer: "IBM", URL: "https://www.ibm.com/us-en/images/homepage/featured/02032017_f_arrowhead_15894_600x260.jpg"}
 	task2 := Task{ID: "002", Customer: "Baidu", URL: "https://ss0.bdstatic.com/5aV1bjqh_Q23odCf/static/superman/img/logo/bd_logo1_31bdc765.png"}
@@ -75,19 +80,19 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 	task4Bytes, err4 := json.Marshal(task4)
 	if err1 != nil {
 		fmt.Println("Error Marshal task1")
-		return nil, err1
+		return err1
 	}
 	if err2 != nil {
 		fmt.Println("Error Marshal task2")
-		return nil, err2
+		return err2
 	}
 	if err3 != nil {
 		fmt.Println("Error Marshal task3")
-		return nil, err3
+		return err3
 	}
 	if err4 != nil {
 		fmt.Println("Error Marshal task4")
-		return nil, err4
+		return err4
 	}
 	err1 = stub.PutState(TASK_PREFIX+task1.ID, task1Bytes)
 	t.updateTaskIDList(stub, task1.ID)
@@ -98,8 +103,7 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 	err4 = stub.PutState(TASK_PREFIX+task4.ID, task4Bytes)
 	t.updateTaskIDList(stub, task4.ID)
 
-	fmt.Println("Initialization complete")
-	return nil, nil
+	return err1
 }
 
 // Invoke isur entry point to invoke a chaincode function
