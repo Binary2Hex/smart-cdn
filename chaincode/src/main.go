@@ -65,13 +65,13 @@ func (t *CDNManager) Init(stub shim.ChaincodeStubInterface, function string, arg
 		fmt.Println("Failed to initialize task IDs collection")
 	}
 
-	err = t.initSamples(stub)
+	// err = t.initSamples(stub)
 
 	fmt.Println("Initialization complete")
 	return nil, nil
 }
 
-func (t *CDNManager) initSamples(stub shim.ChaincodeStubInterface) (error) {
+func (t *CDNManager) initSamples(stub shim.ChaincodeStubInterface) error {
 	// Initialize few tasks
 	task1 := Task{ID: "001", Customer: "IBM", URL: "https://www.ibm.com/us-en/images/homepage/featured/02032017_f_arrowhead_15894_600x260.jpg"}
 	task2 := Task{ID: "002", Customer: "Baidu", URL: "https://ss0.bdstatic.com/5aV1bjqh_Q23odCf/static/superman/img/logo/bd_logo1_31bdc765.png"}
@@ -139,19 +139,31 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 		if err != nil {
 			fmt.Println("Error from getTaskList")
 			return nil, err
-		} else {
-			taskListBytes, err1 := json.Marshal(&taskList)
-			if err1 != nil {
-				fmt.Println("Error marshalling taskList")
-				return nil, err1
-			}
-			fmt.Println("All success, returning taskList")
-			return taskListBytes, nil
 		}
+		taskListBytes, err1 := json.Marshal(&taskList)
+		if err1 != nil {
+			fmt.Println("Error marshalling taskList")
+			return nil, err1
+		}
+		fmt.Println("All success, returning taskList")
+		return taskListBytes, nil
 	} else if function == "getNodeByTaskID" {
 		fmt.Println("Getting node by task ID")
 		nodeIP, err := t.getNodeByTaskID(stub, args)
 		return nodeIP, err
+	} else if function == "getNodeList" {
+		fmt.Println("Getting node list")
+		nodeList, err := t.getNodeList(stub)
+		if err != nil {
+			fmt.Println("Error getting node list", err)
+			return nil, err
+		}
+		nodeListBytes, err1 := json.Marshal(&nodeList)
+		if err1 != nil {
+			fmt.Println("Error marshalling node list", err1)
+			return nil, err1
+		}
+		return nodeListBytes, err
 	}
 	fmt.Println("query did not find func: " + function)
 
@@ -337,6 +349,32 @@ func (t *CDNManager) getTaskById(stub shim.ChaincodeStubInterface, taskId string
 	return &task, nil
 }
 
+func (t *CDNManager) getNodeList(stub shim.ChaincodeStubInterface) ([]CDNNode, error) {
+	keysIter, err := stub.RangeQueryState(NODE_PREFIX, NODE_PREFIX+"~")
+	if err != nil {
+		return nil, errors.New("Unable to start the iterator")
+	}
+
+	defer keysIter.Close()
+
+	var allNodes []CDNNode
+	for keysIter.HasNext() {
+		_, nodeBytes, iterErr := keysIter.Next()
+		if iterErr != nil {
+			return nil, fmt.Errorf("Keys operation failed. Error accessing state: %s", iterErr)
+		}
+		var node CDNNode
+		err = json.Unmarshal(nodeBytes, &node)
+		if err != nil {
+			fmt.Println("Error unmarshal node", err)
+			return nil, err
+		}
+		allNodes = append(allNodes, node)
+	}
+
+	return allNodes, nil
+}
+
 func (t *CDNManager) getNodeByName(stub shim.ChaincodeStubInterface, nodeName string) (*CDNNode, error) {
 	nodeBytes, err := stub.GetState(NODE_PREFIX + nodeName)
 	if err != nil {
@@ -369,7 +407,7 @@ func (t *CDNManager) getNodeByTaskID(stub shim.ChaincodeStubInterface, args []st
 
 	taskBytes, err := stub.GetState(TASK_PREFIX + taskID)
 	if err != nil {
-		fmt.Println("Error getting task by task ID:", TASK_PREFIX + taskID)
+		fmt.Println("Error getting task by task ID:", TASK_PREFIX+taskID)
 		return nil, err
 	}
 	var task Task
@@ -384,7 +422,7 @@ func (t *CDNManager) getNodeByTaskID(stub shim.ChaincodeStubInterface, args []st
 	for _, nodeID := range task.Nodes {
 		nodeBytes, err := stub.GetState(NODE_PREFIX + nodeID)
 		if err != nil {
-			fmt.Println("Error getting cdn node by nodeID:", NODE_PREFIX + nodeID)
+			fmt.Println("Error getting cdn node by nodeID:", NODE_PREFIX+nodeID)
 			return nil, err
 		}
 		var node CDNNode
@@ -395,11 +433,11 @@ func (t *CDNManager) getNodeByTaskID(stub shim.ChaincodeStubInterface, args []st
 		}
 	}
 
-	if clientIP[0] % 2 == 0 {
+	if clientIP[0]%2 == 0 {
 		return []byte("cdn-node-cn.mybluemix.net"), nil
 	} else {
 		return []byte("cdn-node-uk.mybluemix.net"), nil
 	}
 
-return nil, nil
+	return nil, nil
 }
