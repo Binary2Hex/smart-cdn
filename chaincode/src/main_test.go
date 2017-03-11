@@ -100,18 +100,18 @@ func Test_Init(t *testing.T) {
 	fmt.Println("Test Init sucess")
 }
 
-func Test_submitTask(t *testing.T) {
-	chaincode := new(CDNManager)
-	stub := shim.NewMockStub("cdn-manager", chaincode)
+// func Test_submitTask(t *testing.T) {
+// 	chaincode := new(CDNManager)
+// 	stub := shim.NewMockStub("cdn-manager", chaincode)
 
-	checkInit(t, stub, []string{"A"})
+// 	checkInit(t, stub, []string{"A"})
 
-	checkInvoke(t, stub, "submitTask", []string{`{"size": "999", "url": "http://www.ibm.com"}`})
+// 	checkInvoke(t, stub, "submitTask", []string{`{"size": "999", "url": "http://www.ibm.com"}`})
 
-	checkQuery(t, stub, "getTaskList", []string{})
-}
+// 	checkQuery(t, stub, "getTaskList", []string{})
+// }
 
-func Test_claimTask(t *testing.T) {
+/* func Test_claimTask(t *testing.T) {
 	chaincode := new(CDNManager)
 	stub := shim.NewMockStub("cdn-manager", chaincode)
 
@@ -121,10 +121,26 @@ func Test_claimTask(t *testing.T) {
 	checkInvoke(t, stub, "registerCDNNode", []string{`{"name": "cdnName1", "ip": "1.2.3.4"}`})
 	checkInvoke(t, stub, "registerCDNNode", []string{`{"name": "cdnName2", "ip": "cdn.mybluemix.net"}`})
 	checkQuery(t, stub, "getTaskList", []string{})
-	checkQuery(t, stub, "getNodeList", []string{})
-	checkInvoke(t, stub, "claimTask", []string{"cdnName1", "task-uuid"})
-	checkInvoke(t, stub, "claimTask", []string{"cdnName2", "task-uuid"})
+	// checkQuery(t, stub, "getNodeList", []string{})
+	// checkInvoke(t, stub, "claimTask", []string{"cdnName1", "task-uuid"})
+	// checkInvoke(t, stub, "claimTask", []string{"cdnName2", "task-uuid"})
 	// checkQuery(t, stub,)
-	checkQuery(t, stub, "locateCDN", []string{"9.12.34.56", "task-uuid"})
-	checkQuery(t, stub, "locateCDN", []string{"8.12.34.56", "task-uuid"})
+	// checkQuery(t, stub, "locateCDN", []string{"9.12.34.56", "task-uuid"})
+	// checkQuery(t, stub, "locateCDN", []string{"8.12.34.56", "task-uuid"})
+
+	// test record visit and get report
+	// checkInvoke(t, stub, "recordVisit", []string{`{"time" : 0, "taskID": "task-uuid", "cdnNodeName" : "cdnName1", "endpointIP" : "9.12.34.56", "size" : 10, "ack": 0}`})
+	// checkQuery(t, stub, "getReport", []string{})
+} */
+
+func Test_ackReport(t *testing.T) {
+	chaincode := new(CDNManager)
+	stub := shim.NewMockStub("cdn-manager", chaincode)
+
+	checkInit(t, stub, []string{"A"})
+
+	checkInvoke(t, stub, "recordVisit", []string{`{"time" : 0, "taskID": "task-uuid", "cdnNodeName" : "cdnName1", "endpointIP" : "9.12.34.56", "size" : 10, "ack": 0}`})
+	checkQuery(t, stub, "getReport", []string{})
+	checkInvoke(t, stub, "confirmRecordVisit", []string{"task-uuid", "cdnName1", "9.12.34.56"})
+	checkQuery(t, stub, "getReport", []string{})
 }

@@ -139,6 +139,8 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 		return t.claimTask(stub, args)
 	} else if function == "recordVisit" {
 		return nil, t.recordVisit(stub, args)
+	} else if function == "confirmRecordVisit" {
+		return nil, t.confirmRecordVisit(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -507,4 +509,41 @@ func (t *CDNManager) recordVisit(stub shim.ChaincodeStubInterface, args []string
 		return err
 	}
 	return t.saveVisitRecord(stub, record)
+}
+
+func (t *CDNManager) confirmRecordVisit(stub shim.ChaincodeStubInterface, args []string) error {
+	if len(args) != 3 {
+		fmt.Println("Need 3 parameters for confirm record visit, 1st task ID, 2nd CDN Node Name, 3rd, Endpoint IP")
+		return errors.New("Need 3 parameters for confirm record visit")
+	}
+
+	iTaskID := args[0]
+	iCDNNodeName := args[1]
+	iEndpointIP := args[2]
+	allRecordsBytes, err := t.getReport(stub, []string{})
+	if err != nil {
+		fmt.Println("Error Get all RecordBytes in confirmRecordVisit")
+		return err
+	}
+
+	var allRecords []ResouceVisitRecord
+	err = json.Unmarshal(allRecordsBytes, &allRecords)
+	if err != nil {
+		fmt.Println("Error unmarshal allRecordsBytes in confirmRecordVisit")
+		return err
+	}
+
+	for _, visitRecord := range allRecords {
+		if visitRecord.TaskID == iTaskID && visitRecord.CDNNodeName == iCDNNodeName && visitRecord.EndpointIP == iEndpointIP {
+			visitRecord.Ack = 1
+			err = t.saveVisitRecord(stub, visitRecord)
+			if err != nil {
+				fmt.Println("Error updating visit record in confirmRecordVisit")
+				return err
+			}
+			fmt.Println("Update visit record successfully")
+		}
+	}
+
+	return nil
 }
