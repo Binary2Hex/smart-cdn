@@ -544,6 +544,5 @@ func (t *CDNManager) confirmRecordVisit(stub shim.ChaincodeStubInterface, args [
 			fmt.Println("Update visit record successfully")
 		}
 	}
-
 	return nil
 }
