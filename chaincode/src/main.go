@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -19,13 +20,14 @@ var NODE_PREFIX = "node:"
 
 type CDNNode struct {
 	Name  string   `json:"name"`
-	Score string   `json:"score"`
+	Score int      `json:"score"`
 	IP    string   `json:"ip"`
 	Tasks []string `json:"tasks"`
 }
 
 var TASK_PREFIX = "task:"
 
+// This should be named as resouce
 type Task struct {
 	ID       string   `json:"id"`
 	Customer string   `json:"customer"`
@@ -33,6 +35,17 @@ type Task struct {
 	Size     string   `json:"size"`
 	Type     string   `json:"type"`
 	URL      string   `json:"url"`
+}
+
+var VISITED_PREFIX = "visited:"
+
+type ResouceVisitRecord struct {
+	Time        int64  `json:"time"`
+	TaskID      string `json:"taskId"`
+	CDNNodeName string `json:"cdnNodeName"`
+	EndpointIP  string `json:"endpointIP"`
+	Size        int    `json:"size"`
+	Ack         int    `json:"ack"`
 }
 
 func main() {
@@ -122,6 +135,8 @@ func (t *CDNManager) Invoke(stub shim.ChaincodeStubInterface, function string, a
 		return t.registerCDNNode(stub, args)
 	} else if function == "claimTask" {
 		return t.claimTask(stub, args)
+	} else if function == "recordVisit" {
+		return nil, t.recordVisit(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -164,6 +179,9 @@ func (t *CDNManager) Query(stub shim.ChaincodeStubInterface, function string, ar
 			return nil, err1
 		}
 		return nodeListBytes, err
+	} else if function == "getReport" {
+		fmt.Println("Getting report")
+		return t.getReport(stub, args)
 	}
 	fmt.Println("query did not find func: " + function)
 
@@ -177,7 +195,6 @@ func (t *CDNManager) registerCDNNode(stub shim.ChaincodeStubInterface, args []st
 		fmt.Println("Error unmarshal cdn node", err)
 		return nil, err
 	}
-
 	return nil, t.saveCDNNode(stub, &node)
 }
 
@@ -191,12 +208,7 @@ func (t *CDNManager) submitTask(stub shim.ChaincodeStubInterface, args []string)
 	// compute size
 	// set owner
 
-	err = t.saveTask(stub, &task)
-	if err != nil {
-		fmt.Println("Error saving task", err)
-		return nil, err
-	}
-	return nil, t.updateTaskIDList(stub, task.ID)
+	return nil, t.saveTask(stub, &task)
 }
 
 // Update the task ID table by adding the new ID
@@ -283,6 +295,45 @@ func (t *CDNManager) getTaskList(stub shim.ChaincodeStubInterface) ([]Task, erro
 	return allTasks, nil
 }
 
+func (t *CDNManager) getReport(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	getAllTask := false
+	var taskID, nodeName string
+	if len(args) == 0 {
+		getAllTask = true
+	}
+	if len(args) >= 1 {
+		taskID = args[0]
+	}
+	if len(args) >= 2 {
+		nodeName = args[1]
+	}
+
+	keysIter, err := stub.RangeQueryState(VISITED_PREFIX, VISITED_PREFIX+"~")
+	if err != nil {
+		return nil, errors.New("Unable to start the iterator")
+	}
+
+	defer keysIter.Close()
+
+	var allRecord []ResouceVisitRecord
+	for keysIter.HasNext() {
+		_, recordBytes, iterErr := keysIter.Next()
+		if iterErr != nil {
+			return nil, fmt.Errorf("Keys operation failed. Error accessing state: %s", iterErr)
+		}
+		var record ResouceVisitRecord
+		err = json.Unmarshal(recordBytes, &record)
+		if err != nil {
+			fmt.Println("Error unmarshal visit record", err)
+			return nil, err
+		}
+		if getAllTask || record.TaskID == taskID || record.CDNNodeName == nodeName {
+			allRecord = append(allRecord, record)
+		}
+	}
+	return json.Marshal(&allRecord)
+}
+
 //////////////////////////////////////////////////////////// frequent operations
 
 func indexOf(strList []string, strToFind string) int {
@@ -324,6 +375,29 @@ func (t *CDNManager) saveCDNNode(stub shim.ChaincodeStubInterface, node *CDNNode
 	}
 
 	err = stub.PutState(NODE_PREFIX+node.Name, nodeBytes)
+	return err
+}
+
+func (t *CDNManager) saveVisitRecord(stub shim.ChaincodeStubInterface, record ResouceVisitRecord) error {
+	if record.TaskID == "" {
+		return errors.New("Can not save a recored without task id")
+	}
+	if record.CDNNodeName == "" {
+		return errors.New("Can not save a record without cdn name")
+	}
+	if record.EndpointIP == "" {
+		return errors.New("Can not save a record without endpoint IP")
+	}
+	if record.Time == 0 {
+		// TODO: this may increase non-deterministic
+		record.Time = time.Now().Unix()
+	}
+	recordBytes, err := json.Marshal(&record)
+	if err != nil {
+		return err
+	}
+
+	err = stub.PutState(VISITED_PREFIX+string(record.Time), recordBytes)
 	return err
 }
 
@@ -415,5 +489,16 @@ func (t *CDNManager) locateCDN(stub shim.ChaincodeStubInterface, args []string) 
 	if err1 != nil {
 		return nil, err1
 	}
+	// Should record visit here, but blockchain does not allow writting in a query
 	return []byte(node.IP), nil
+}
+
+func (t *CDNManager) recordVisit(stub shim.ChaincodeStubInterface, args []string) error {
+	var record ResouceVisitRecord
+	err := json.Unmarshal([]byte(args[0]), &record)
+	if err != nil {
+		fmt.Println("Error unmarshal visit record", err)
+		return err
+	}
+	return t.saveVisitRecord(stub, record)
 }
