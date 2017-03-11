@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -392,12 +393,13 @@ func (t *CDNManager) saveVisitRecord(stub shim.ChaincodeStubInterface, record Re
 		// TODO: this may increase non-deterministic
 		record.Time = time.Now().Unix()
 	}
+
 	recordBytes, err := json.Marshal(&record)
 	if err != nil {
 		return err
 	}
 
-	err = stub.PutState(VISITED_PREFIX+string(record.Time), recordBytes)
+	err = stub.PutState(VISITED_PREFIX+strconv.FormatInt(record.Time, 10), recordBytes)
 	return err
 }
 
