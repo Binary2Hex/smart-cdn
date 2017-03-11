@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,6 +36,7 @@ type Task struct {
 	Size     string   `json:"size"`
 	Type     string   `json:"type"`
 	URL      string   `json:"url"`
+	Time     int64    `json:"time"`
 }
 
 var VISITED_PREFIX = "visited:"
@@ -350,6 +351,9 @@ func (t *CDNManager) saveTask(stub shim.ChaincodeStubInterface, task *Task) erro
 	if task.ID == "" {
 		// Generate an UUID as task ID
 		task.ID = uuid.New().String()
+	}
+	if task.Time == 0 {
+		task.Time = time.Now().Unix()
 	}
 	taskBytes, err := json.Marshal(task)
 	if err != nil {
