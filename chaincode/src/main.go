@@ -335,7 +335,7 @@ func (t *CDNManager) getReport(stub shim.ChaincodeStubInterface, args []string) 
 			allRecord = append(allRecord, record)
 		}
 	}
-	return json.Marshal(&allRecord)
+	return stub.GetCallerMetadata()
 }
 
 //////////////////////////////////////////////////////////// frequent operations
@@ -450,7 +450,6 @@ func (t *CDNManager) getNodeList(stub shim.ChaincodeStubInterface) ([]CDNNode, e
 		}
 		allNodes = append(allNodes, node)
 	}
-
 	return allNodes, nil
 }
 
